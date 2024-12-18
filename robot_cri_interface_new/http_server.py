@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from zeroconf import ServiceInfo, Zeroconf
+import socket
 from cri_lib import CRIController  # Ensure this is the correct library for your robot
 import traceback
 from time import sleep
@@ -10,6 +12,22 @@ CORS(app)
 
 # Initialize the CRI Controller
 controller = CRIController()
+
+
+def register_mdns_service():
+    zeroconf = Zeroconf()
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    service_info = ServiceInfo(
+        "_http._tcp.local.",
+        "FlaskServer._http._tcp.local.",
+        addresses=[socket.inet_aton(ip_address)],
+        port=5000,
+        properties={},
+        server=f"{hostname}.local.",
+    )
+    zeroconf.register_service(service_info)
+    print(f"Broadcasting Flask server on {ip_address}:5000")
 
 @app.route('/connect_robot', methods=['POST'])
 def connect_robot():
@@ -281,4 +299,5 @@ def pick_orange():
         raise
 
 if __name__ == '__main__':
+    register_mdns_service()
     app.run(host='0.0.0.0', port=5000)  # Bind to all network interfaces on port 5000

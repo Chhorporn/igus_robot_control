@@ -1,3 +1,6 @@
 pytest
 pytest-cov
 flask
+flask_cors
+zeroconf
+websockets
