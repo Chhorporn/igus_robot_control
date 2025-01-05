@@ -9,40 +9,50 @@ from time import sleep
 # Initialize Flask app and CORS
 app = Flask(__name__)
 CORS(app)
+zeroconf = Zeroconf()
+
 
 # Initialize the CRI Controller
 controller = CRIController()
 
 
 def register_mdns_service():
-    zeroconf = Zeroconf()
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
+    # hostname = socket.gethostname()
+    # ip_address = socket.gethostbyname(hostname)
     service_info = ServiceInfo(
         "_http._tcp.local.",
         "FlaskServer._http._tcp.local.",
-        addresses=[socket.inet_aton(ip_address)],
+        addresses=[socket.inet_aton("192.168.1.28")],
         port=5000,
         properties={},
-        server=f"{hostname}.local.",
+        # server=f"{hostname}.local.",
+        server="flask.local.",
     )
     zeroconf.register_service(service_info)
-    print(f"Broadcasting Flask server on {ip_address}:5000")
+    # print(f"Broadcasting Flask server on {ip_address}:5000")
+    print("MDNS service registered")
+    return zeroconf
+@app.route('/')
+def index():
+    return "Flask server is running!"
 
-@app.route('/connect_robot', methods=['POST'])
+@app.route('/connect_robot', methods=['GET', 'POST'])
 def connect_robot():
-    try:
-        print("Attempting to connect to the robot...")
-        if not controller.connect("127.0.0.1", 3921):  # Adjust IP and port as necessary
-            raise Exception("Unable to connect to the robot")
-        controller.set_active_control(True)
-        controller.enable()
-        controller.wait_for_kinematics_ready(10)
-        print("Robot successfully connected and initialized")
-        return jsonify({"status": "Connected"})
-    except Exception as e:
-        print(f"Error connecting to robot: {e}")
-        return jsonify({"status": "Error", "message": str(e)}), 500
+    if request.method == 'GET':
+        return "This endpoint is working! Use POST for actual functionality."
+    else:
+        try:
+            print("Attempting to connect to the robot...")
+            if not controller.connect("127.0.0.1", 3921):  # Adjust IP and port as necessary
+                raise Exception("Unable to connect to the robot")
+            controller.set_active_control(True)
+            controller.enable()
+            controller.wait_for_kinematics_ready(10)
+            print("Robot successfully connected and initialized")
+            return jsonify({"status": "Connected"})
+        except Exception as e:
+            print(f"Error connecting to robot: {e}")
+            return jsonify({"status": "Error", "message": str(e)}), 500
 
 @app.route('/disconnect_robot', methods=['POST'])
 def disconnect_robot():
@@ -300,4 +310,7 @@ def pick_orange():
 
 if __name__ == '__main__':
     register_mdns_service()
-    app.run(host='0.0.0.0', port=5000)  # Bind to all network interfaces on port 5000
+    try:
+        app.run(host='0.0.0.0', port=5000)  # Bind to all network interfaces on port 5000
+    finally: 
+        zeroconf.close()

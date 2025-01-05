@@ -23,7 +23,8 @@ class RobotControlScreen extends StatefulWidget {
 
 class _RobotControlScreenState extends State<RobotControlScreen> {
   String? serverUrl;
-  String responseMessage = "Server not discovered yet";
+  String responseMessage = "Searching for server...";
+  bool isServerDiscovered = false;
 
   @override
   void initState() {
@@ -44,16 +45,15 @@ class _RobotControlScreenState extends State<RobotControlScreen> {
           await for (final IPAddressResourceRecord ip
               in mdns.lookup<IPAddressResourceRecord>(
                   ResourceRecordQuery.addressIPv4(srv.target))) {
-            final rawIp = ip.address.toString();
-            final sanitizedIp = rawIp.split(';').first.trim();
+            final sanitizedIp = ip.address.address; // Clean IP
             final discoveredUrl = 'http://$sanitizedIp:${srv.port}';
 
             setState(() {
               serverUrl = discoveredUrl;
-              responseMessage = "Discovered server: $serverUrl";
+              responseMessage = "Discovered server: $discoveredUrl";
             });
-            print("Discovered server: $serverUrl");
-            return;
+            print("Discovered server: $discoveredUrl");
+            return; // Stop further discovery after finding the server
           }
         }
       }
@@ -61,7 +61,7 @@ class _RobotControlScreenState extends State<RobotControlScreen> {
       // Fallback to a hardcoded IP for debugging
       setState(() {
         serverUrl =
-            "http://192.168.56.1:5000"; // Replace with your Flask server's IP
+            "http://192.168.1.28:5000"; // Replace with your Flask server's IP
         responseMessage =
             "Failed to discover server. Using fallback: $serverUrl";
       });
@@ -80,7 +80,15 @@ class _RobotControlScreenState extends State<RobotControlScreen> {
       return;
     }
 
+    // Construct and validate the full URL
     final url = Uri.parse('$serverUrl/$endpoint');
+    if (!url.hasScheme || !url.host.isNotEmpty) {
+      setState(() {
+        responseMessage = "Invalid server URL.";
+      });
+      return;
+    }
+
     try {
       final response = await http.post(
         url,
@@ -110,11 +118,11 @@ class _RobotControlScreenState extends State<RobotControlScreen> {
     sendPostRequest('connect_robot', {});
   }
 
-  void Apple() {
+  void pickApple() {
     sendPostRequest('command', {"command": "pick_apple"});
   }
 
-  void Orange() {
+  void pickOrange() {
     sendPostRequest('command', {"command": "pick_orange"});
   }
 
@@ -129,24 +137,24 @@ class _RobotControlScreenState extends State<RobotControlScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              onPressed: connectToRobot,
+              onPressed: serverUrl == null ? null : connectToRobot,
               child: Text("Connect to Robot"),
             ),
             SizedBox(height: 16),
             ElevatedButton(
-              onPressed: Apple,
+              onPressed: serverUrl == null ? null : pickApple,
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
-                backgroundColor: Colors.red, // Text color
+                backgroundColor: Colors.red,
               ),
               child: Text("Apple Juice"),
             ),
             SizedBox(height: 16),
             ElevatedButton(
-              onPressed: Orange,
+              onPressed: serverUrl == null ? null : pickOrange,
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
-                backgroundColor: Colors.orange, // Text color
+                backgroundColor: Colors.orange,
               ),
               child: Text("Orange Juice"),
             ),
